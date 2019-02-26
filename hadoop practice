@@ -1,0 +1,343 @@
+https://github.com/HadoopThoughtworks
+
+https://github.com/Sailendra-R-D/Prep-Resource-CCA175/blob/master/Problems/Arun/Problem1
+
+sqoop import \
+--connect "jdbc:mysql://ms.itversity.com/retail_db" \
+--username retail_user \
+--password itversity \
+--table orders \
+--target-dir /user/kumsavarthami/problem1/orders \
+--as-avrodatafile \
+--compress \
+--compression-codec org.apache.hadoop.io.compress.SnappyCodec
+
+
+sqoop import \
+--connect "jdbc:mysql://ms.itversity.com/retail_db" \
+--username retail_user \
+--password itversity \
+--table order_items \
+--target-dir  /user/kumsavarthami/problem1/order-items \
+--as-avrodatafile \
+--compress \
+--compression-codec org.apache.hadoop.io.compress.SnappyCodec
+
+ spark-shell --conf spark.ui.port=35446 --executor-memory 1G --master yarn --packages com.databricks:spark-avro_2.10:2.0.1
+
+
+3.Using Spark Scala load data at /user/cloudera/problem1/orders and /user/cloudera/problem1/orders-items items as dataframes.
+
+//import avro dependency 
+import com.databricks.spark.avro._;
+val oDF = sqlContext.read.avro("/user/kumsavarthami/problem1/orders")
+
+val oiDF = sqlContext.read.avro("/user/kumsavarthami/problem1/order-items")
+
+val joinDF = oDF.join(oiDF,oDF("order_id")===oiDF("order_item_order_id"))
+
+
+DataFrame:
+var resultDF = joinDF.groupBy(to_date(from_unixtime(col("order_date")/1000)).alias("order_formatted_date"),col("order_status")).agg(round(sum("order_item_subtotal"),2).alias("Total"),countDistinct("order_id").alias("Count")).orderBy("order_formatted_date".desc,"order_status","total")
+
+
+SparkSQL:
+joinDF.registerTempTable("tableDF")
+
+val result = sqlContext.sql("select to_date(from_unixtime(cast(order_date/1000 as bigint))) as formatted_date,order_status,round(sum(order_item_subtotal),2) as total,count(Distinct order_id) as order_count from tableDF group by order_date,order_status order by formatted_date,order_status")
+
+combineByKey
+
+create pair RDD:
+scala> joinDF.printSchema
+root
+ |-- order_id: integer (nullable = true)
+ |-- order_date: long (nullable = true)
+ |-- order_customer_id: integer (nullable = true)
+ |-- order_status: string (nullable = true)
+ |-- order_item_id: integer (nullable = true)
+ |-- order_item_order_id: integer (nullable = true)
+ |-- order_item_product_id: integer (nullable = true)
+ |-- order_item_quantity: integer (nullable = true)
+ |-- order_item_subtotal: float (nullable = true)
+ |-- order_item_product_price: float (nullable = true)
+
+((1374724800000,CLOSED),(49.98,4))
+val pairRDD = joinDF.map(x=> ((x(1).toString,x(3).toString),(x(8).toString.toFloat,x(0).toString)))
+
+val resultRDD = pairRDD.combineByKey((x:(Float,String)) => (x._1,Set(x._2),(x:(Float,Set[String]),y:(Float,String) ) => x._1+y._1,x._2+y._2),(x:(Float,Set[String]),y:(Float,Set[String]))=>x._1+y._1,x._2++y._2))
+
+
+
+
+
+
+
+val crimeRDD = sc.textFile("/public/crime/csv/crime_data.csv")
+crimeRDD.take(10).foreach(println)
+val header = crimeData.first
+ val crimeDataNoHeader = crimeData.filter(rec => rec != header)
+ val crimeDate = crimeDataNoHeader.map(rec=>rec.split(",")(2).split(" ")(0))
+ val month = crimeDate.map(rec=>rec.split("/")(2)+rec.split("/")(0))
+
+val crimedate1 = crimeDate.map(rec=>rec.split("/")(2))
+
+ val crimeDateType = crimeDataNoHeader.map(rec => rec.split(",")(2).split(" ")(0)).Distinct.collect.sorted.foreach(println)
+ val crimePairRDD = crimeDataNoHeader.map(rec => ((rec.split(",")(2).split(" ")(0),rec.split(",")(5)),1))
+
+
+val result = crimePairRDD.aggregateByKey((0))(
+(interim,value) => (interim+value),
+(ftotal,interim) => (ftotal+interim)
+)
+
+
+
+
+
+val crimeData = sc.textFile("/public/crime/csv")
+
+val header = crimeData.first
+
+val crimeNoHeader = crimeData.filter(rec => rec != header)
+
+val monthCrime = crimeNoHeader.map(rec => (rec.split(",")(2).split(" ")(0),rec.split(",")(5),1))
+
+val monthCrimeDF = monthCrime.toDF("month","crimeType","cnt")
+
+monthCrimeDF.registerTempTable("monthCrimeTbl")
+
+val result = sqlContext.sql("select concat(substring(month,7,10),substring(month,1,2)) as monthyear , crimeType , count(cnt) as monyrcount from monthCrimeTbl group by concat(substring(month,7,10),substring(month,1,2)),crimeType order by monthyear asc,monyrcount desc")
+
+
+
+
+val crimefile = sc.textFile("/public/crime/csv")
+ val first = crimefile.first
+
+val crimes = crimefile.filter(x=>x!=first)
+ val crimmap = crimes.map(x=>{
+ val splitted = x.split(",")
+ val monthsplit = splitted(2).trim.split("/")
+ val month = monthsplit(2).split(" ")(0)+monthsplit(0)
+ val ctype = splitted(5).trim
+ (month,ctype,1)
+ })
+
+val cdf = crimmap.toDF(“month”,“ctype”,“cnt”)
+cdf.registerTempTable(“crimes”)
+val sqlContext = new org.apache.spark.sql.SQLContext(sc)
+
+val result = sqlContext.sql(“select month,sum(cnt) as total,ctype from crimes group by month,ctype order by month asc,total desc”)
+
+val result = sqlContext.sql("select month,sum(cnt) as total,crimetype from crimetbl group by month,crimetype order by month asc, total desc")
+
+val crimerdd = result.rdd.map(x=>{
+ val month = x.getString(0)
+ val total = x.getLong(1)
+ val ctype = x.getString(2)
+ (month+"\t"+total+"\t"+ctype)
+ })
+
+crimerdd.saveAsTextFile("/user/test//crime-text-comp",classOf[org.apache.hadoop.io.compress.GzipCodec])
+
+
+
+
+crimeData.take(10).foreach(println)
+val resiLoc = crimeNoHeader.filter(rec => (rec.split(",")(7) == "RESIDENCE"))
+resiLoc.take(10).foreach(println)
+
+
+
+
+
+
+
+
+sqoop import \
+--connect "jdbc:mysql://ms.itversity.com/retail_db" \
+--username retail_user \
+--password itversity \
+--table products \
+--fields-terminated-by "|" \
+--target-dir /user/kumsavarthami/problem2/products 
+
+
+
+val productsRDD = sc.textFile("/user/kumsavarthami/problem2/products")
+
+val productsMap= productsRDD.map(rec => rec.split('|')(4))
+
+val productsFilter = productsRDD.filter(rec => rec.split('|')(4).toFloat <= 100)
+
+productsFilter.take(5).foreach(println)
+
+mysql -h ms.iteversity.com -u retail_user - p itversity
+
+---------------------+--------------+------+-----+---------+----------------+
+| Field               | Type         | Null | Key | Default | Extra          |
++---------------------+--------------+------+-----+---------+----------------+
+| product_id          | int(11)      | NO   | PRI | NULL    | auto_increment |
+| product_category_id | int(11)      | NO   |     | NULL    |                |
+| product_name        | varchar(45)  | NO   |     | NULL    |                |
+| product_description | varchar(255) | NO   |     | NULL    |                |
+| product_price       | float        | NO   |     | NULL    |                |
+| product_image       | varchar(255) | NO   |     | NULL    |                |
++---------------------+--------------+------+-----+---------+----------------+
+
+val pairRDD = productsFilter.map(rec => (rec.split('|')(1),rec.split('|')(4).toFloat))
+pairRDD.take(5).foreach(println)
+
+val resultRDD = pairRDD.aggregateByKey((0.0,0,0.0,0.0))(
+(intern,value) => (math.max(intern._1,value),intern._2+1,intern._3+value,math.min(intern._4,value)),
+(fresult,intern) => (math.max(fresult._1,intern._1),fresult._2+1,intern._3+fresult._3,math.min(fresult._4,intern._4)),
+)
+
+
+ val resultRDD = pairRDD.aggregateByKey((0.0,0.0,0,9999999999999.0))(
+      (x,y) =>
+         (math.max(x._1,y),x._2+y,x._3+1,math.min(x._4,y)),
+      (x,y) => 
+         (math.max(x._1,y._1),x._2+y._2,x._3+y._3,math.min(x._4,y._4))
+   ).
+
+
+
+
+
+Create a hive table from the all_price_data.txt dataset and run sample select queries.
+
+create external table all_price_data (datetimestamp string, open float, high float, low float, close float, volume int, sym string) row format delimited fields terminated by ';' location '/user/cloudera/rawdata/hist_forex/price_data'
+
+
+
+
+
+create external table raw_price_data (datetimestamp string, open float, high float, low float, close float, volume int, sym string) row format delimited fields terminated by ';' location '/user/kumsavarthami'; 
+32  
+
+CREATE EXTERNAL TABLE raw_price_data (datetimestamp string, open float, high float, low float, close float, volume int, sym string)
+  COMMENT 'Student Names'
+  ROW FORMAT DELIMITED
+  FIELDS TERMINATED BY ';'
+  LOCATION '/user/kumsavarthami'
+
+
+
+
+
+CREATE EXTERNAL TABLE IF NOT EXISTS names_text(
+  student_ID INT, FirstName STRING, LastName STRING,    
+  year STRING, Major STRING)
+  COMMENT 'Student Names'
+  ROW FORMAT DELIMITED
+  FIELDS TERMINATED BY ','
+  STORED AS TEXTFILE
+  LOCATION '/user/kumsavarthami';
+
+
+sqoop import \
+--connect "jdbc:mysql://ms.itversity.com/retail_db" \
+--username retail_user \
+--password itversity \
+--table customers \
+--fields-terminated-by "/t" \
+--target-dir "/user/kumsavarthami/customer_0222" \
+--num-mappers 1
+
+sqoop import \
+--connect "jdbc:mysql://ms.itversity.com/retail_db" \
+--username retail_user \
+--password itversity \
+--table products \
+--as-avrodatafile \
+--target-dir "/user/kumsavarthami/product_0222" \
+--num-mappers 1
+
+
+Import all CLOSED customer orders  from the orders table in retail_db mysql database into HDFS path "/user/cloudera/output/retail_db/orders_avro". 
+Records must be imported in avro format. 
+All imported records must be CLOSED orders. 
+
+sqoop import \
+--connect "jdbc:mysql://ms.itversity.com/retail_db" \
+--username retail_user \
+--password itversity \
+--table orders \
+--as-avrodatafile \
+--target-dir "/user/kumsavarthami/order_avro_0222" \
+--where "order_status = 'CLOSED'"
+
+
+val mostsoldproduct = oidf.groupBy("order_item_product_id").agg(count("order_item_product_id").alias("productsold")).orderBy(col("productsold").desc)
+
+
+joinedData.groupBy(to_date(from_unixtime(col("order_date")/1000)).alias("order_date"),col("order_status")).agg(round(sum("order_item_subtotal"),2).alias("Total amount"),countDistinct("order_id").alias("total Orders")).orderBy(col("order_date").desc,col("order_status"),col("Total amount").desc,col("total Orders")).collect().foreach(println) 
+
+
+val oidf = sqlContext.read.format("com.databricks.spark.avro").load("/user/kumsavarthami/problem3/retail_stage.db/order_items_nopk")
+val proddf = sqlContext.read.format("com.databricks.spark.avro").load("/user/kumsavarthami/product_0222")
+
+proddf.show
+
+val joineddata = mostsoldproduct.join(proddf , mostsoldproduct("order_item_product_id")===proddf("productid"))
+
+
+sqoop import \
+--connect "jdbc:mysql://ms.itversity.com/retail_db" \
+--username retail_user \
+--password itversity \
+--table orders \
+--hive-import 
+
+vi employee.csv
+E001,Emp1
+E002,Emp2
+E001,Emp1
+E002,Emp2
+E002,Emp2
+E002,Emp2
+E002,Emp2
+E002,Emp2
+E002,Emp2
+E002,Emp2
+E002,Emp2
+E002,Emp2
+E002,Emp2
+E002,Emp2
+E002,Emp2
+E002,Emp2
+E002,Emp2
+E002,Emp2
+E002,Emp2
+
+vi manager.csv
+E001,MGR1
+E002,MGR3
+E003,MGR3
+E004,MGR3
+E005,MGR1
+E006,MGR2
+E007,MGR1
+E008,MGR1
+E009,MGR1
+E010,MGR1
+E011,MGR1
+E012,MGR1
+E013,MGR2
+E014,MGR2
+E015,MGR3
+E016,MGR1
+E017,MGR4
+E018,MGR8
+E019,MGR4
+E020,MGR4
+E021,MGR4
+E022,MGR4
+E023,MGR4
+E024,MGR2
+E025,MGR2
+
+
+vi 
