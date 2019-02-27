@@ -1,0 +1,119 @@
+1. Import Single table categories(Subset data) to hive managed table , where category_id between 1 and 22 
+sqoop import \
+--connect "jdbc:mysql://ms.itversity.com/retail_db" \
+--username retail_user \
+--password itversity \
+--table categories \
+--hive-import \
+--where "category_id between 1 and 22" \
+-m1
+
+
+
+2. List all the tables using sqoop command from retail_db 
+
+sqoop list-tables \
+--connect "jdbc:mysql://ms.itversity.com/retail_db" \
+--username retail_user \
+--password itversity 
+
+3.Write simple sqoop eval command to check whether you have permission to read database tables or not. 
+
+sqoop eval \
+--connect "jdbc:mysql://ms.itversity.com/retail_db" \
+--username retail_user \
+--password itversity \
+--query 'select count(*) from orders'
+
+4.Import all the tables as avro tiles in /user/hive/warehouse/retail_cca174.db 
+
+sqoop import-all-tables \
+--connect "jdbc:mysql://ms.itversity.com/retail_db" \
+--username retail_user \
+--password itversity \
+--warehouse-dir "/user/hive/warehouse/retail_cca174_kumsa.db" \
+--as-avrodatafile \
+-m1
+
+5.Import departments table as a text tile in /user/cloudera/departments. 
+
+sqoop import \
+--connect "jdbc:mysql://ms.itversity.com/retail_db" \
+--username retail_user \
+--password itversity \
+--target-dir "/user/kumsavarthami/departments" \
+--as-textfile \
+--table departments \
+-m1
+
+
+1. Import entire database such that it can be used as a hive tables, it must be created in default schema. 
+2. Also make sure each tables file is partitioned in 3 files e.g. part-0000, part-00002, part-00003 
+3. Store all the java tiles in a directory called java_output to evalute the further 
+
+
+sqoop import-all-tables \
+--connect "jdbc:mysql://ms.itversity.com/retail_db" \
+--username retail_user \
+--password itversity \
+--hive-import \
+--hive-overwrite \
+--create-hive-table \
+--compress \
+--compression-codec org.apache.hadoop.io.compress.SnappyCodec \
+--outdir java_output
+
+1. Import departments table in a directory called departments. 
+sqoop import \
+--connect "jdbc:mysql://ms.itversity.com/retail_db" \
+--username retail_user \
+--password itversity \
+--target-dir "/user/kumsavarthami/departments" \
+--as-textfile \
+--table departments \
+-m1
+
+Insert into departments(10, physics); 
+Insert into departments(11, Chemistry); 
+Insert into departments(12, Maths); 
+Insert into departments(13, Science); 
+Insert into departments(14, Engineering); 
+
+
+sqoop import \ 
+--connect "jdbc:mysql://ms.itversity.com/retail_db" \
+--username retail_user \
+--password itversity \
+--table departments \ 
+--target-dir /user/cloudera/departments \ 
+--append \ 
+--check-column "department_id" \ 
+--incremental append \ 
+--last-value 7 
+
+
+sqoop job --create test -- import --connect "jdbc:mysql://ms.itversity.com/retail_db" \
+--username retail_user \
+--password itversity \
+--table orders \
+--split-by order_id   \
+--target-dir /user/kumsavarthami/orders \
+--check-column order_date  \
+--incremental append \
+--as-textfile
+
+CREATE table departments_new (department_id int(11), department_name varchar(45), created_date  TIMESTAMP DEFAULT NOW());
+
+Import incremetal data based on created_date column. 
+sqoop import \ 
+--connect jdbc:mysql://quickstart:3306/retail_db \ 
+--username=retail_dba \ 
+--password=cloudera \ 
+--table departments _ new \ 
+--target-dir /user/cloudera/departments_new \ 
+--append \ 
+--check-column created_date \ 
+--incremental lastmodified \ 
+--split-by department_id \ 
+--last-value "2016-01-30 12:07:37.0”
+
