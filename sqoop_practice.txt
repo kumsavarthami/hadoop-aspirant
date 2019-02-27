@@ -1,0 +1,52 @@
+ Import data from catagories table, where category=22 (Data should be stored in categories_subset) 
+
+ sqoop import \
+ --connect jdbc:mysql://ms.itversity.com/retail_db \
+ --username retail_user \
+ --password itversity \
+ --table categories \
+ --target-dir /user/kumsavarthami/categories_subset \
+ --where "category_id=22"
+
+Import data from catagories table, where catagory>22 (Data should be stored in categories_subset_2) 
+
+ sqoop import \
+ --connect jdbc:mysql://ms.itversity.com/retail_db \
+ --username retail_user \
+ --password itversity \
+ --table categories \
+ --target-dir /user/kumsavarthami/categories_subset_2 \
+ --where "category_id>22"
+
+ Import data from catagories table, where catagory between 1 and 22 (Data should be stored in categories_subset_3) 
+
+  sqoop import \
+ --connect jdbc:mysql://ms.itversity.com/retail_db \
+ --username retail_user \
+ --password itversity \
+ --table categories \
+ --target-dir /user/kumsavarthami/categories_subset_3 \
+ --where "category_id>=1 and category_id < 22"
+
+ While importing catagories data change the delimiter to 'I' (Data should be stored in categories_subset_6) 
+
+   sqoop import \
+ --connect jdbc:mysql://ms.itversity.com/retail_db \
+ --username retail_user \
+ --password itversity \
+ --table categories \
+ --target-dir /user/kumsavarthami/categories_subset_6 \
+ --fields-terminated-by "|" \
+ --where "category_id>=1 and category_id < 22"
+
+
+  Importing data from catagories table and restrict the import to category_name,category_id columns only with delimiter as 'l' 
+    sqoop import \
+ --connect jdbc:mysql://ms.itversity.com/retail_db \
+ --username retail_user \
+ --password itversity \
+ --table categories \
+ --target-dir /user/kumsavarthami/categories_subset_7 \
+ --fields-terminated-by "|" \
+ --where "category_id>=1 and category_id < 22" \
+ --columns "category_id , category_name "
